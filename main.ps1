@@ -35,7 +35,6 @@ function get_plugins {
         $script:plugins_list += [PSCustomObject]@{  name = $plugin.name; version = $plugin.version }
 
         [void]$Script:dependecies_plugins.Add($plugin.dependencies)
-
     }
 }
 
@@ -50,8 +49,8 @@ function remove_dependency_from_vulnerability_plugins {
 function download_plugins {
 
     New-Item -Path "$Path\plugins-$script:Version\" -ItemType Directory
-    #$scope:plugins_list | ForEach-Object -ThrottleLimit 4 -Parallel {
-     foreach ($plugin in $script:plugins_list) {
+
+    foreach ($plugin in $script:plugins_list) {
         Invoke-WebRequest -Uri "https://updates.jenkins-ci.org/download/plugins/$($plugin.name)/$($plugin.version)/$($plugin.name).hpi" -OutFile "$Path\plugins-$script:Version\$($plugin.name).hpi"
     }
 }
