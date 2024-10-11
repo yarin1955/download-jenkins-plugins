@@ -79,6 +79,28 @@ function Remove-VulnerablePlugins {
      }
 }
 
+function Write-File {
+    param (
+        [Parameter(Mandatory=$true, Position=0)]
+        [Plugin[]] $plugins
+    )
+
+    $pathFile= "$Path\plugins_version.text"
+
+    if (-not (Test-Path $pathFile)) {
+        New-Item -Path $pathFile -ItemType File
+    }
+
+    foreach ($plugin in $plugins_list) {
+
+        $line = "Name: $($plugin.Name), Version: $($plugin.version)" + "`n"
+        
+        Add-Content -Path $pathFile -Value $line
+    }
+}
+
+
+
 function DownloadPlugins {
     param (
         [Parameter(Mandatory=$true, Position=0)]
@@ -118,6 +140,8 @@ function main {
     }
 
     DownloadPlugins($plugins_list)
+
+    Write-File($plugins_list)
 }
 
 main
