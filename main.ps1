@@ -10,59 +10,114 @@ param(
     [string]$Secure
 )
 
-$plugins_list = @()
+class Plugin
+{
+    # Optionally, add attributes to prevent invalid values
+    [ValidateNotNullOrEmpty()][string]$Name
+    [string]$Version
 
-$dependecies_plugins= New-Object System.Collections.Generic.HashSet[object];
+    Plugin([string]$Name, [string]$Version) {
+        $this.Name = $Name
+        $this.Version = $Version
+    }
 
-$vulnerability_plugins= New-Object System.Collections.Generic.HashSet[object];
+    [void] DisplayInfo() {
+        Write-Host "Name: $($this.Name), Version: $($this.Version)"
+    }
+}
 
-$data = Invoke-WebRequest -Uri "https://updates.jenkins.io/update-center.actual.json?version=$version" | ConvertFrom-Json
+function Get-Plugins {
+    Param
+    (
+        [Parameter(Mandatory=$true, Position=0)]
+        [object] $data
+    )
 
+    $plugins_list= @();
 
-function get_vulnerability_plugins {
-    foreach ($plugin in $data.warnings) {
+    foreach ($plugin in $data.PSObject.Properties.value) {
+
+        $plugins_list += [Plugin]::new($plugin.name,$plugin.version)
+    } 
+    
+    return $plugins_list;
+}
+
+function Get-VulnerablePlugins {
+
+    Param
+    (
+        [Parameter(Mandatory=$true, Position=0)]
+        [object[]] $data
+    )
+
+    $plugins_list= @();
+
+    foreach ($plugin in $data) {
         if($plugin.type -eq "plugin") {
-            #$unsecure += $plugin.name
-            [void]$Script:vulnerability_plugins.Add($plugin.name)
+
+            $plugins_list += [Plugin]::new($plugin.name,$plugin.versions[0].lastVersion)
+        }
+    }
+
+    return $plugins_list;
+}
+
+function Remove-VulnerablePlugins {
+
+    Param
+    (
+        [Parameter(Mandatory=$true, Position=0)]
+        [Plugin[]] $plugins,
+        [Parameter(Mandatory=$true, Position=1)]
+        [Plugin[]] $vulnerablePlugins
+    )
+
+    return $plugins_list = $plugins_list | Where-Object {
+        $plugin = $_
+        -not ($vulnerablePlugins | Where-Object { $_.Name -eq $plugin.Name -and $_.Version -eq $plugin.Version })
+     }
+}
+
+function DownloadPlugins {
+    param (
+        [Parameter(Mandatory=$true, Position=0)]
+        [Plugin[]] $plugins_list
+    )
+
+    $pathDirectory= "$Path\plugins-$Version"
+
+    if (-not (Test-Path $pathDirectory)) {
+        New-Item -Path $pathDirectory -ItemType Directory
+    }
+
+    foreach ($plugin in $plugins_list) {
+
+        if (Test-Path $pathDirectory\$($plugin.name).hpi) {
+
+            $plugin_url = "https://updates.jenkins-ci.org/download/plugins/$($plugin.name)/$($plugin.version)/$($plugin.name).hpi"
+
+            Invoke-WebRequest -Uri $plugin_url -OutFile "$pathDirectory\$($plugin.name).hpi"
+
         }
     }
 }
 
-function get_plugins {
-    foreach ($key in $data.plugins.PSObject.Properties.Name) {
-        $plugin = $data.plugins."$key"
 
-        $script:plugins_list += [PSCustomObject]@{  name = $plugin.name; version = $plugin.version }
+function main {
 
-        [void]$Script:dependecies_plugins.Add($plugin.dependencies)
+    $jenkins_data = Invoke-WebRequest -Uri "https://updates.jenkins.io/update-center.actual.json?version=$version" | ConvertFrom-Json
+
+    $plugins_list = Get-Plugins($jenkins_data.plugins)
+
+    if($Secure.ToLower() -eq 'true'){
+
+        $vulnerable_plugins = Get-VulnerablePlugins($jenkins_data.warnings)
+
+        $plugins_list = Remove-VulnerablePlugins($plugins_list, $vulnerable_plugins)
     }
+
+    DownloadPlugins($plugins_list)
 }
 
-function remove_dependency_from_vulnerability_plugins {
-    foreach ($item in $script:dependecies_plugins) {
-        if($item.optional) {
-            [void]$script:vulnerability_plugins.Remove($item.name)
-        }
-    }
-}
-
-function download_plugins {
-
-    New-Item -Path "$Path\plugins-$script:Version\" -ItemType Directory
-
-    foreach ($plugin in $script:plugins_list) {
-        Invoke-WebRequest -Uri "https://updates.jenkins-ci.org/download/plugins/$($plugin.name)/$($plugin.version)/$($plugin.name).hpi" -OutFile "$Path\plugins-$script:Version\$($plugin.name).hpi"
-    }
-}
-
-get_plugins
-
-if($Secure -eq 'True'  -or $Secure -eq 'true'){
-    get_vulnerability_plugins
-
-    remove_dependency_from_vulnerability_plugins
-}
-
-$plugins_list = $plugins_list | Where-Object { -not $vulnerability_plugins.Contains($_.name) }
-
-download_plugins
+main
