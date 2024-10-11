@@ -99,8 +99,6 @@ function Write-File {
     }
 }
 
-
-
 function DownloadPlugins {
     param (
         [Parameter(Mandatory=$true, Position=0)]
@@ -115,16 +113,21 @@ function DownloadPlugins {
 
     foreach ($plugin in $plugins_list) {
 
-        if (Test-Path $pathDirectory\$($plugin.name).hpi) {
+        if (-not (Test-Path $pathDirectory\$($plugin.name).hpi)) {
 
             $plugin_url = "https://updates.jenkins-ci.org/download/plugins/$($plugin.name)/$($plugin.version)/$($plugin.name).hpi"
 
             Invoke-WebRequest -Uri $plugin_url -OutFile "$pathDirectory\$($plugin.name).hpi"
 
         }
-    }
-}
 
+        else {
+            $plugins_list = $plugins_list | Where-Object { $_.Name -ne $plugin.name }
+        }
+    }
+
+    return $plugins_list;
+}
 
 function main {
 
@@ -139,7 +142,7 @@ function main {
         $plugins_list = Remove-VulnerablePlugins($plugins_list, $vulnerable_plugins)
     }
 
-    DownloadPlugins($plugins_list)
+    $plugins_list= DownloadPlugins($plugins_list)
 
     Write-File($plugins_list)
 }
