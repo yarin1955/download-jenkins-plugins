@@ -1,52 +1,33 @@
 #!/bin/bash
 
-# declare -A plugins
+declare -A plugins
 
-# declare -A vulnerable_plugins
+declare -A vulnerable_plugins
 
-plugins
-
-vulnerable_plugins
 
 function get_plugins() {
     local data="$1"
 
-    # echo "$data" | jq -c '.[]' | while read -r plugin; do
-    #     version=$(echo "$plugin" | jq -r '.version')
-    #     name=$(echo "$plugin" | jq -r '.name')
-
-    #     plugins[$name]=$version
-
-    #     echo "${plugins[@]}"
-    # done
-
-    plugins=$(echo "$data" | jq 'to_entries | map({Name: .value.name, Version: .value.version})')
+    while read -r name version; do
+        plugins["$name"]="$version"
+    done <<< "$(echo "$data" | jq -r '.[] | "\(.name) \(.version)"')"
 }
 
 function get_vulnerable_plugins() {
     local data="$1"
 
-    # echo "$data" | jq -c '.[]' | while read -r plugin; do
-    #     version=$(echo "$plugin" | jq -r '.versions[0].lastVersion')
-    #     name=$(echo "$plugin" | jq -r '.name')
-
-    #     vulnerable_plugins[$name]=$version
-
-    #     echo "${vulnerable_plugins[@]}"
-    # done    
-
-    vulnerable_plugins=$(echo "$data" | jq 'to_entries | map({Name: .value.name, Version: .value.versions[0].lastVersion})')
+    while read -r name version; do
+        vulnerable_plugins["$name"]="$version"
+    done <<< "$(echo "$data" | jq -r '.[] | "\(.name) \(.versions[0].lastVersion)"')" 
 }
 
 function remove_vulnerable_plugins() {
 
-    echo "$vulnerable_plugins" | jq -r '.[] | "\(.Name) \(.Version)"' | while read -r Name Version;
-        do 
-
-            plugins=$(echo "$plugins" | jq -r --arg name "$Name" --arg version "$Version" '.[] | select(.Name != $name and .Version != $version ) | .Version')
-
-        done
-
+    for pluginName in "${!vulnerable_plugins[@]}"; do
+        if [[ "${plugins[$pluginName]}" == "${vulnerable_plugins[$pluginName]}"  ]]; then
+            unset plugins[$pluginName]
+        fi
+    done
 }
 
 function main() {
@@ -59,13 +40,11 @@ function main() {
 
     local vulnerablePlugins=$(echo "$jenkins_data" | jq '.warnings')  
 
-
     get_plugins "$plugins_list"
 
     get_vulnerable_plugins "$vulnerablePlugins"
 
     remove_vulnerable_plugins
-
 }
 
-main
+main 
