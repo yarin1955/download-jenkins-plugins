@@ -33,7 +33,9 @@ function remove_vulnerable_plugins() {
 
 function download_plugins() {
 
-    mkdir -m 755 plugins
+    if [ ! -d "plugins" ]; then
+        mkdir -m 755 plugins
+    fi
 
     for pluginName in "${!plugins[@]}"; do
         
