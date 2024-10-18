@@ -18,16 +18,31 @@ function get_vulnerable_plugins() {
 
     while read -r name version; do
         vulnerable_plugins["$name"]="$version"
-    done <<< "$(echo "$data" | jq -r '.[] | "\(.name) \(.versions[0].lastVersion)"')" 
+    done <<< "$(echo "$data" | jq -r '.[] | "\(.name) \(.versions[0].lastVersion // "null")"')" 
 }
 
 function remove_vulnerable_plugins() {
-
     for pluginName in "${!vulnerable_plugins[@]}"; do
-        if [[ "${plugins[$pluginName]}" == "${vulnerable_plugins[$pluginName]}"  ]]; then
+
+        if [[ "${plugins[$pluginName]}" == "${vulnerable_plugins[$pluginName]}" || "${vulnerable_plugins[$pluginName]//[[:space:]]/}" == "null" ]]; then
             unset plugins[$pluginName]
         fi
     done
+}
+
+
+function download_plugins() {
+
+    mkdir -m 755 plugins
+
+    for pluginName in "${!plugins[@]}"; do
+        
+        URL="https://updates.jenkins.io/download/plugins/${pluginName}/${vulnerable_plugins[$pluginName]//[[:space:]]/}/${pluginName}.hpi"
+
+        curl -L -o plugins/${pluginName}.hpi "$URL"
+
+        echo "Name: $pluginName, Version: ${plugins[$pluginName]//[[:space:]]/}" >> plugins_versions.text
+    done  
 }
 
 function main() {
@@ -45,6 +60,8 @@ function main() {
     get_vulnerable_plugins "$vulnerablePlugins"
 
     remove_vulnerable_plugins
+
+    download_plugins
 }
 
 main 
