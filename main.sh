@@ -107,8 +107,6 @@ function main() {
 
     jenkins_data=$(curl -G "$jenkins_data")
 
-    echo $jenkins_data >> aa.text
-
     local plugins_list=$(echo "$jenkins_data" | jq '.plugins')
 
     local vulnerablePlugins=$(echo "$jenkins_data" | jq '.warnings')  
