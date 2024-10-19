@@ -1,12 +1,12 @@
 param(
 
-    [Parameter(Mandatory, HelpMessage="version of jenkins")]
-    [string]$Version,
+    [Parameter(HelpMessage="version of jenkins")]
+    [string]$Version="latest",
 
-    [Parameter(Mandatory, HelpMessage="path to save plugins")]
-    [string]$Path,
+    [Parameter(HelpMessage="path to save plugins")]
+    [string]$Path= (Get-Location),
 
-    [Parameter(Mandatory, HelpMessage="remove danger plugins")]
+    [Parameter(HelpMessage="remove danger plugins")]
     [string]$Secure
 )
 
